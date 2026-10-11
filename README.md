@@ -1,1 +1,0 @@
-# Kosti-teaching-hospital
