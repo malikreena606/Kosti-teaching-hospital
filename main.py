@@ -174,4 +174,100 @@ def show_booking_screen(page, clinic, doctor, spec, nat, name, price):
 
     page.add(ft.Column([
         ft.Text("حجز موعد جديد", size=20, weight=ft.FontWeight.BOLD),
-        ft.Text(f"💰 قيمة التذكرة: {price}", size=16, color=ft.Colors.BLUE_900, weight=ft.FontWeight.
+        ft.Text(f"💰 قيمة التذكرة: {price}", size=16, color=ft.Colors.BLUE_900, weight=ft.FontWeight.BOLD),
+        name_field, 
+        date_field,
+        ft.Row([
+            ft.Button(
+                content="📷 إرفاق صورة",
+                on_click=lambda _: file_picker.pick_files(allow_multiple=False, file_type=ft.FilePickerFileType.IMAGE),
+                bgcolor=ft.Colors.ORANGE_700,
+                color=ft.Colors.WHITE
+            ),
+            attached_image_status
+        ], alignment=ft.MainAxisAlignment.START),
+        ft.Button(content="✅ تأكيد الحجز", on_click=confirm_booking,
+                  expand=True, height=50, bgcolor=ft.Colors.GREEN_600,
+                  color=ft.Colors.WHITE)
+    ], spacing=15))
+    page.update()
+
+def show_my_appointments_screen(page, nat):
+    page.clean()
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""SELECT patient_name, clinic_name, doctor_name, appointment_date, ticket_price, image_path
+        FROM appointments WHERE national_id = ? ORDER BY appointment_id DESC""", (nat,))
+    rows = cursor.fetchall()
+    conn.close()
+    cards = []
+    if not rows:
+        cards.append(ft.Text("لا توجد مواعيد محجوزة", color=ft.Colors.GREY_600))
+    else:
+        for name, clinic, doctor, date, price, img in rows:
+            img_info = f" | 📷 مرفق: {img}" if img else ""
+            cards.append(ft.Container(
+                content=ft.Column([
+                    ft.Text(f"👤 {name}", weight=ft.FontWeight.BOLD),
+                    ft.Text(f"👨‍⚕️ {doctor} / {clinic}", size=12),
+                    ft.Text(f"📅 الموعد: {date} | 💵 التذكرة: {price}{img_info}", size=12)
+                ], spacing=4),
+                padding=12, bgcolor=ft.Colors.BLUE_50, border_radius=10
+            ))
+    page.add(ft.Column([
+        ft.Text("📋 مواعيدي", size=20, weight=ft.FontWeight.BOLD),
+        *cards,
+        ft.TextButton(content="← العودة للعيادات",
+                      on_click=lambda e: show_login_screen(page))
+    ], spacing=10, expand=True, scroll=ft.ScrollMode.AUTO))
+    page.update()
+
+def show_admin_dashboard(page):
+    page.clean()
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT a.patient_name, a.appointment_date,
+               a.clinic_name, p.phone_number, a.ticket_price
+        FROM appointments a
+        LEFT JOIN patients p ON a.national_id = p.national_id
+        ORDER BY a.appointment_id DESC
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+    table_rows = []
+    for name, date, clinic, phone, price in rows:
+        table_rows.append(ft.DataRow(cells=[
+            ft.DataCell(ft.Text(name or "", size=15)),
+            ft.DataCell(ft.Text(date or "", size=15)),
+            ft.DataCell(ft.Text(clinic or "", size=15)),
+            ft.DataCell(ft.Text(phone or "", size=15)),
+            ft.DataCell(ft.Text(price or "10,000 جنيه", size=15)),
+        ]))
+    table = ft.DataTable(
+        columns=[
+            ft.DataColumn(ft.Text("الاسم", color=ft.Colors.WHITE)),
+            ft.DataColumn(ft.Text("الموعد", color=ft.Colors.WHITE)),
+            ft.DataColumn(ft.Text("العيادة", color=ft.Colors.WHITE)),
+            ft.DataColumn(ft.Text("رقم الهاتف", color=ft.Colors.WHITE)),
+            ft.DataColumn(ft.Text("التذكرة", color=ft.Colors.WHITE)),
+        ],
+        rows=table_rows,
+        heading_row_color=ft.Colors.PURPLE_600,
+    )
+    page.add(ft.Column([
+        ft.Text("تقارير الحجوزات", size=20, weight=ft.FontWeight.BOLD),
+        table
+    ], expand=True, scroll=ft.ScrollMode.AUTO))
+    page.update()
+
+def main(page: ft.Page):
+    page.title = "مستشفى كوستي التعليمي"
+    page.rtl = True
+    page.scroll = ft.ScrollMode.AUTO
+    page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
+    init_db()
+    show_login_screen(page)
+
+if __name__ == "__main__":
+    ft.run(main)
